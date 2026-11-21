@@ -11,7 +11,7 @@
 Orquestador local y autónomo de sub-agentes de IA. Le das una instrucción, genera un plan de tareas atómicas, las ejecuta con agentes especializados y **verifica cada una antes de aprobarla**. Si una verificación falla, el agente la repara solo (hasta 3 intentos).
 
 ```bash
-pip install "swarm-pilot[all]"
+pip install "swarm-pilot[all] @ git+https://github.com/deivycom21-cell/swarm-pilot.git"
 swarm-pilot run "Crea una landing page moderna"
 ```
 
@@ -27,12 +27,12 @@ swarm-pilot run "Crea una landing page moderna"
 Requiere Python ≥ 3.10. Y al menos un proveedor: [Claude Code](https://claude.com/claude-code) en el PATH, una API key o [Ollama](https://ollama.com).
 
 ```bash
-pip install swarm-pilot             # núcleo: claude-cli, OpenAI, OpenRouter, Ollama
-pip install "swarm-pilot[all]"      # + SDK de Anthropic + servidor MCP
+pip install git+https://github.com/deivycom21-cell/swarm-pilot.git             # núcleo: claude-cli, OpenAI, OpenRouter, Ollama
+pip install "swarm-pilot[all] @ git+https://github.com/deivycom21-cell/swarm-pilot.git"      # + SDK de Anthropic + servidor MCP
 swarm-pilot doctor                  # comprueba proveedores, herramientas y puertos
 ```
 
-Desde el código: `git clone … && cd swarm-pilot && pip install -e ".[dev,all]"`.
+Desde el código: `git clone https://github.com/deivycom21-cell/swarm-pilot.git && cd swarm-pilot && pip install -e ".[dev,all]"`.
 
 ### Cómo funciona
 
@@ -129,7 +129,7 @@ El diseño completo está en [PLAN.md](PLAN.md).
 A local, autonomous orchestrator for AI sub-agents. Give it an instruction: it writes a plan of atomic tasks, runs them with role-specialized agents, and **verifies every task before approving it**. When a verification fails, the agent repairs it on its own (up to 3 attempts).
 
 ```bash
-pip install "swarm-pilot[all]"
+pip install "swarm-pilot[all] @ git+https://github.com/deivycom21-cell/swarm-pilot.git"
 swarm-pilot run "Build a modern landing page"
 ```
 
@@ -145,8 +145,8 @@ swarm-pilot run "Build a modern landing page"
 Python ≥ 3.10 and at least one provider: [Claude Code](https://claude.com/claude-code) on your PATH, an API key, or [Ollama](https://ollama.com).
 
 ```bash
-pip install swarm-pilot             # core: claude-cli, OpenAI, OpenRouter, Ollama
-pip install "swarm-pilot[all]"      # + Anthropic SDK + MCP server
+pip install git+https://github.com/deivycom21-cell/swarm-pilot.git             # core: claude-cli, OpenAI, OpenRouter, Ollama
+pip install "swarm-pilot[all] @ git+https://github.com/deivycom21-cell/swarm-pilot.git"      # + Anthropic SDK + MCP server
 swarm-pilot doctor                  # checks providers, tools and ports
 ```
 
