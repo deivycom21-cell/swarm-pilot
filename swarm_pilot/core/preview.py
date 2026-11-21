@@ -4,7 +4,7 @@ Detección (en orden):
 1. `package.json` con script `dev` o `start` → `npm run <script>` (con el flag de puerto
    adecuado para vite / next / astro; `PORT` en el entorno para el resto).
 2. `vite.config.*` sin scripts → `npx vite`.
-3. `index.html` en la raíz, `public/` o `dist/` → `python -m http.server`.
+3. `index.html` en la raíz, `public/` o `dist/` → servidor estático de Python (`STATIC_SERVER`).
 
 El servidor arranca en segundo plano (no frena al orquestador), escucha solo en 127.0.0.1
 y se reinicia si cambian `package.json` o la config de vite.
@@ -32,8 +32,29 @@ RESTART_TRIGGERS = ("package.json", "vite.config.js", "vite.config.ts", "vite.co
 READY_TIMEOUT = 120.0
 
 
+#: Servidor estático equivalente a `python -m http.server`, pero sin `socket.getfqdn()` al
+#: arrancar (en macOS esa resolución inversa puede bloquear decenas de segundos).
+STATIC_SERVER = """\
+import functools, http.server, socketserver, sys
+class Server(http.server.ThreadingHTTPServer):
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+port, directory = int(sys.argv[1]), sys.argv[2]
+handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=directory)
+with Server(("127.0.0.1", port), handler) as httpd:
+    print(f"Sirviendo {directory} en http://127.0.0.1:{port}/", flush=True)
+    httpd.serve_forever()
+"""
+
+
 def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
+    """¿Podría un servidor escuchar aquí? En POSIX los servidores usan SO_REUSEADDR, así que
+    las conexiones en TIME_WAIT de un servidor ya cerrado no cuentan como puerto ocupado.
+    (En Windows SO_REUSEADDR permitiría robar un puerto en uso: allí no se activa.)"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if sys.platform != "win32":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind((host, port))
         except OSError:
@@ -90,8 +111,7 @@ def detect_preview(project_dir: Path, port: int) -> PreviewCommand | None:
     for sub in ("", "public", "dist"):
         directory = project_dir / sub if sub else project_dir
         if (directory / "index.html").is_file():
-            args = [sys.executable, "-m", "http.server", p, "--bind", "127.0.0.1",
-                    "--directory", str(directory)]  # fmt: skip
+            args = [sys.executable, "-c", STATIC_SERVER, p, str(directory)]
             return PreviewCommand("static", args, project_dir)
     return None
 
