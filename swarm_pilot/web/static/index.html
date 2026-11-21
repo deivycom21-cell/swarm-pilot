@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="swarm-token" content="__SWARM_TOKEN__">
+<title>swarm-pilot</title>
+<style>
+  :root {
+    --bg: #0a0c10; --panel: #11141a; --panel-2: #161a22; --line: #222835;
+    --fg: #e6e8ee; --muted: #8b92a5; --faint: #5b6275;
+    --accent: #8ea8ff; --ok: #5ee4a0; --warn: #f5c45b; --bad: #ff7a85; --run: #7cc4ff;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans);
+         display: flex; flex-direction: column; overflow: hidden; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .hidden { display: none !important; }
+
+  /* ---- cabecera ---- */
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+           border-bottom: 1px solid var(--line); min-height: 52px; }
+  .brand { font-family: var(--mono); font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
+  .brand b { color: var(--accent); }
+  .goal { flex: 1; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden;
+          text-overflow: ellipsis; }
+  .goal strong { color: var(--fg); font-weight: 500; }
+  .stats { display: flex; gap: 14px; align-items: center; font-family: var(--mono); font-size: 12px;
+           color: var(--muted); white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+          border: 1px solid var(--line); font-size: 12px; font-family: var(--mono); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+  .pill[data-phase="running"] .dot, .pill[data-phase="planning"] .dot { background: var(--run); animation: pulse 1.2s infinite; }
+  .pill[data-phase="awaiting_approval"] .dot { background: var(--warn); }
+  .pill[data-phase="finished"] .dot { background: var(--ok); }
+  .pill[data-phase="offline"] .dot { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .icon-btn { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+              padding: 4px 10px; font-size: 12px; }
+  .icon-btn:hover { border-color: var(--faint); }
+
+  /* ---- banners ---- */
+  .banner { margin: 10px 16px 0; padding: 12px 14px; border-radius: var(--radius);
+            border: 1px solid var(--line); background: var(--panel); display: grid; gap: 8px; }
+  .banner.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .banner.bad { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+  .banner h3 { margin: 0; font-size: 14px; }
+  .banner pre { margin: 0; max-height: 160px; overflow: auto; background: var(--bg); padding: 8px 10px;
+                border-radius: 8px; font: 12px/1.45 var(--mono); color: #ffb3ba; white-space: pre-wrap; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .actions input { flex: 1; min-width: 200px; background: var(--bg); border: 1px solid var(--line);
+                   color: var(--fg); border-radius: 8px; padding: 6px 10px; font: inherit; }
+  .btn { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 12px; }
+  .btn.primary { background: var(--accent); color: #0a0c10; border-color: transparent; font-weight: 600; }
+  .btn.danger { color: var(--bad); }
+  .btn:hover { filter: brightness(1.1); }
+
+  /* ---- layout ---- */
+  main { flex: 1; min-height: 0; display: grid; gap: 12px; padding: 12px 16px 16px;
+         grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(0, 1fr); }
+  main.no-preview { grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); }
+  main.no-preview #preview-col { display: none; }
+  .col { min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+          min-height: 0; display: flex; flex-direction: column; }
+  .card > h2 { margin: 0; padding: 10px 12px; font-size: 11px; font-weight: 600; letter-spacing: .08em;
+               text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);
+               display: flex; align-items: center; gap: 8px; }
+  .card > h2 .spacer { flex: 1; }
+  .scroll { overflow: auto; min-height: 0; }
+
+  /* ---- plan ---- */
+  #plan { flex: 1; }
+  .progress { height: 3px; background: var(--line); }
+  .progress > div { height: 100%; width: 0; background: var(--ok); transition: width .4s; }
+  .task { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; display: grid;
+          grid-template-columns: 18px 1fr; gap: 2px 8px; }
+  .task:hover { background: var(--panel-2); }
+  .task.selected { background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
+  .task .st { font-family: var(--mono); font-size: 13px; line-height: 20px; text-align: center; }
+  .task .title { font-weight: 500; }
+  .task .meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted);
+                font-family: var(--mono); }
+  .tag { padding: 0 6px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); }
+  .tries { display: inline-flex; gap: 3px; align-items: center; }
+  .tries i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .tries i.ok { background: var(--ok); } .tries i.bad { background: var(--bad); }
+  .st.pending { color: var(--faint); } .st.running, .st.verifying { color: var(--run); }
+  .st.done { color: var(--ok); } .st.blocked { color: var(--bad); } .st.skipped { color: var(--muted); }
+
+  /* ---- agentes ---- */
+  #agents .row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  #agents .row:last-child { border-bottom: 0; }
+  .spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line);
+             border-top-color: var(--run); animation: spin .8s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { padding: 12px; color: var(--faint); font-size: 13px; }
+
+  /* ---- logs ---- */
+  #logs-card { flex: 1; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .chip { font: 11px var(--mono); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+          background: transparent; color: var(--muted); }
+  .chip.on { color: var(--fg); border-color: var(--accent); }
+  #logs { font: 12px/1.55 var(--mono); padding: 6px 0; flex: 1; }
+  .log { display: grid; grid-template-columns: 62px 74px 1fr; gap: 8px; padding: 0 12px; white-space: pre-wrap;
+         word-break: break-word; }
+  .log .t { color: var(--faint); } .log .src { color: var(--accent); overflow: hidden; text-overflow: ellipsis; }
+  .log.verifier .src { color: var(--warn); } .log.preview .src { color: var(--muted); }
+  .log.planner .src { color: #c79bff; } .log.fail { color: #ffb3ba; } .log.good { color: var(--ok); }
+
+  /* ---- reparaciones ---- */
+  #repairs { max-height: 30%; }
+  #repairs details { border-bottom: 1px solid var(--line); padding: 8px 12px; }
+  #repairs summary { cursor: pointer; font-size: 13px; }
+  #repairs pre { margin: 6px 0 0; font: 11px/1.45 var(--mono); color: #ffb3ba; white-space: pre-wrap;
+                 max-height: 180px; overflow: auto; }
+
+  /* ---- vista previa ---- */
+  #preview { flex: 1; }
+  #preview .bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line);
+                  font: 12px var(--mono); color: var(--muted); }
+  #preview .bar a { color: var(--accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
+  #preview .frame-wrap { flex: 1; position: relative; background: #fff; border-radius: 0 0 var(--radius) var(--radius);
+                         overflow: hidden; }
+  #preview iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #preview .placeholder { position: absolute; inset: 0; display: grid; place-content: center; text-align: center;
+                          background: var(--panel); color: var(--faint); padding: 24px; gap: 6px; }
+
+  @media (max-width: 1100px) {
+    body { overflow: auto; }
+    main, main.no-preview { grid-template-columns: 1fr; }
+    #preview-col { min-height: 70vh; }
+    #logs-card { min-height: 50vh; }
+    .stats .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">swarm<b>·</b>pilot</div>
+  <div class="goal" id="goal">Conectando…</div>
+  <div class="stats">
+    <span id="counter">0/0</span>
+    <span class="hide-sm" id="cost" title="Coste equivalente en API (con la suscripción de Claude no se factura)"></span>
+    <span class="hide-sm" id="elapsed">00:00</span>
+    <span class="pill" id="phase" data-phase="offline"><span class="dot"></span><span id="phase-text">desconectado</span></span>
+    <button class="icon-btn" id="toggle-preview" title="Mostrar/ocultar la vista previa">◧ preview</button>
+  </div>
+</header>
+
+<section class="banner warn hidden" id="approval">
+  <h3>Revisa el plan antes de ejecutarlo</h3>
+  <div style="color:var(--muted)">También puedes editar <code>PLAN.md</code> y aprobar desde la terminal.</div>
+  <div class="actions">
+    <button class="btn primary" id="approve-yes">Aprobar y ejecutar</button>
+    <button class="btn danger" id="approve-no">Cancelar</button>
+  </div>
+</section>
+<div id="help-list"></div>
+<section class="banner hidden" id="finished"></section>
+
+<main id="main">
+  <div class="col">
+    <section class="card" id="plan">
+      <h2>Plan <span class="spacer"></span><span id="plan-count"></span></h2>
+      <div class="progress"><div id="progress"></div></div>
+      <div class="scroll" id="tasks"><div class="empty">Esperando el plan…</div></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card" id="agents">
+      <h2>Agentes activos</h2>
+      <div id="agent-rows"><div class="empty">Ninguno por ahora.</div></div>
+    </section>
+    <section class="card" id="logs-card">
+      <h2>Logs en vivo <span class="spacer"></span>
+        <label style="text-transform:none;letter-spacing:0;font-weight:400">
+          <input type="checkbox" id="autoscroll" checked> seguir</label></h2>
+      <div class="filters" id="filters"></div>
+      <div class="scroll" id="logs"></div>
+    </section>
+    <section class="card" id="repairs">
+      <h2>Auto-reparación <span class="spacer"></span><span id="repair-count">0</span></h2>
+      <div class="scroll" id="repair-list"><div class="empty">Sin fallos de verificación.</div></div>
+    </section>
+  </div>
+
+  <div class="col" id="preview-col">
+    <section class="card" id="preview">
+      <h2>Vista previa <span class="spacer"></span><span id="preview-kind"></span></h2>
+      <div class="bar">
+        <span id="preview-state">sin servidor</span>
+        <a id="preview-url" target="_blank" rel="noopener"></a>
+        <span class="spacer" style="flex:1"></span>
+        <button class="icon-btn" id="preview-reload">↻</button>
+      </div>
+      <div class="frame-wrap">
+        <iframe id="frame" title="Vista previa" class="hidden"></iframe>
+        <div class="placeholder" id="preview-placeholder">
+          <div>La vista previa aparecerá cuando el proyecto tenga una web que servir.</div>
+          <div style="font-size:12px">vite · next · astro · npm run dev · index.html estático</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+  const TOKEN = document.querySelector('meta[name="swarm-token"]').content;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+  const ICON = { pending: "○", running: "◐", verifying: "◑", done: "●", blocked: "✕", skipped: "–" };
+  const PHASE = { idle: "listo", planning: "planificando", awaiting_approval: "esperando aprobación",
+                  running: "ejecutando", finished: "terminado", offline: "desconectado" };
+  const MAX_LOGS = 3000;
+
+  const state = { plan: null, phase: "offline", help: new Map(), filter: "all", sources: new Set(),
+                  agents: new Map(), repairs: 0, startedAt: Date.now() / 1000, cost: 0, preview: { state: "off" } };
+
+  // ---------- render ----------
+  function renderHeader() {
+    const p = state.plan;
+    $("goal").innerHTML = "";
+    if (p) { $("goal").append("Objetivo: ", el("strong", null, p.goal)); } else { $("goal").textContent = "Sin plan todavía"; }
+    const total = p ? p.tasks.length : 0;
+    const done = p ? p.tasks.filter((t) => t.status === "done" || t.status === "skipped").length : 0;
+    $("counter").textContent = `${done}/${total} tareas`;
+    $("plan-count").textContent = total ? `${done}/${total}` : "";
+    $("progress").style.width = total ? `${(100 * done) / total}%` : "0";
+    $("phase").dataset.phase = state.phase;
+    $("phase-text").textContent = PHASE[state.phase] || state.phase;
+    $("cost").textContent = state.cost ? `$${state.cost.toFixed(3)} eq.` : "";
+    $("approval").classList.toggle("hidden", state.phase !== "awaiting_approval");
+  }
+
+  function renderPlan() {
+    const box = $("tasks");
+    if (!state.plan) return;
+    box.innerHTML = "";
+    for (const t of state.plan.tasks) {
+      const row = el("div", "task" + (state.filter === t.id ? " selected" : ""));
+      row.append(el("div", `st ${t.status}`, ICON[t.status] || "?"));
+      row.append(el("div", "title", `${t.id} · ${t.title}`));
+      const meta = el("div", "meta");
+      meta.append(el("span", "tag", t.role));
+      if (t.depends.length) meta.append(el("span", null, "← " + t.depends.join(", ")));
+      if (t.attempts.length) {
+        const tries = el("span", "tries");
+        for (const a of t.attempts) tries.append(el("i", a.ok === true ? "ok" : a.ok === false ? "bad" : ""));
+        meta.append(tries);
+      }
+      row.append(meta);
+      row.title = [t.detail, t.files.length ? "Archivos: " + t.files.join(", ") : "", t.verify.length ? "Verificar: " + t.verify.join(" · ") : ""].filter(Boolean).join("\n\n");
+      row.onclick = () => setFilter(state.filter === t.id ? "all" : t.id);
+      box.append(row);
+    }
+  }
+
+  function renderAgents() {
+    const box = $("agent-rows");
+    box.innerHTML = "";
+    if (!state.agents.size) { box.append(el("div", "empty", state.phase === "planning" ? "Planificador trabajando…" : "Ninguno por ahora.")); return; }
+    for (const [id, a] of state.agents) {
+      const row = el("div", "row");
+      row.append(el("div", "spinner"));
+      row.append(el("div", null, `${id} · ${a.title}`));
+      row.append(el("div", "tag", a.status === "verifying" ? "verificando" : `${a.agent || "agente"} · intento ${a.attempt || 1}`));
+      box.append(row);
+    }
+  }
+
+  function renderFilters() {
+    const box = $("filters");
+    box.innerHTML = "";
+    const add = (key, label) => {
+      const c = el("button", "chip" + (state.filter === key ? " on" : ""), label);
+      c.onclick = () => setFilter(key);
+      box.append(c);
+    };
+    add("all", "todos");
+    for (const s of state.sources) add(s, s);
+  }
+
+  function setFilter(key) {
+    state.filter = key;
+    for (const n of $("logs").children) n.classList.toggle("hidden", key !== "all" && n.dataset.src !== key);
+    renderFilters(); renderPlan();
+  }
+
+  function fmtTime(ts) { const d = ts ? new Date(ts) : new Date(); return d.toTimeString().slice(0, 8); }
+
+  function addLog(src, line, ts, cls) {
+    if (!state.sources.has(src)) { state.sources.add(src); renderFilters(); }
+    const box = $("logs");
+    const row = el("div", "log " + (cls || ""));
+    row.dataset.src = src;
+    row.append(el("span", "t", fmtTime(ts)), el("span", "src", src), el("span", null, line));
+    if (state.filter !== "all" && state.filter !== src) row.classList.add("hidden");
+    box.append(row);
+    while (box.children.length > MAX_LOGS) box.firstChild.remove();
+    if ($("autoscroll").checked) box.scrollTop = box.scrollHeight;
+  }
+
+  function addRepair(taskId, attempt, remaining, error) {
+    const list = $("repair-list");
+    if (!state.repairs) list.innerHTML = "";
+    state.repairs += 1;
+    $("repair-count").textContent = state.repairs;
+    const d = el("details");
+    d.append(el("summary", null, `${taskId} · intento ${attempt} falló — quedan ${remaining}`));
+    d.append(el("pre", null, error || ""));
+    list.prepend(d);
+  }
+
+  function renderHelp() {
+    const box = $("help-list");
+    box.innerHTML = "";
+    for (const h of state.help.values()) {
+      const b = el("section", "banner bad");
+      b.append(el("h3", null, `${h.task_id} necesita ayuda — ${h.title}` + (h.rate_limited ? " (límite de uso alcanzado)" : "")));
+      b.append(el("pre", null, h.error || ""));
+      const actions = el("div", "actions");
+      const hint = el("input"); hint.placeholder = "Pista opcional para el reintento (p. ej. «usa flexbox en vez de grid»)";
+      const send = (action) => post("/api/answer", { task_id: h.task_id, action, hint: hint.value });
+      const mk = (label, action, cls) => { const x = el("button", "btn " + (cls || ""), label); x.onclick = () => send(action); return x; };
+      actions.append(hint, mk("Reintentar", "retry", "primary"), mk("Lo arreglé a mano", "manual"), mk("Saltar", "skip"), mk("Abortar", "abort", "danger"));
+      b.append(actions);
+      box.append(b);
+    }
+  }
+
+  function renderPreview() {
+    const p = state.preview || { state: "off" };
+    const labels = { off: "sin servidor", starting: "arrancando…", ready: "en vivo", failed: "falló", stopped: "detenida" };
+    $("preview-state").textContent = labels[p.state] || p.state;
+    $("preview-kind").textContent = p.kind || "";
+    const url = $("preview-url");
+    url.textContent = p.url || ""; url.href = p.url || "#";
+    const frame = $("frame"), ph = $("preview-placeholder");
+    if (p.state === "ready" && p.url) {
+      if (frame.dataset.src !== p.url) { frame.src = p.url; frame.dataset.src = p.url; }
+      frame.classList.remove("hidden"); ph.classList.add("hidden");
+    } else {
+      frame.classList.add("hidden"); ph.classList.remove("hidden");
+      ph.firstElementChild.textContent = p.state === "failed" ? `La vista previa falló: ${p.error || ""}` :
+        p.state === "starting" ? "Arrancando el servidor de desarrollo…" : "La vista previa aparecerá cuando el proyecto tenga una web que servir.";
+    }
+  }
+
+  function renderFinished(s) {
+    const b = $("finished");
+    if (!s) { b.classList.add("hidden"); return; }
+    const names = { completed: "Proyecto terminado", paused: "Ejecución en pausa", aborted: "Ejecución abortada" };
+    b.className = "banner " + (s.outcome === "completed" ? "" : "warn");
+    b.innerHTML = "";
+    const c = s.counts || {};
+    b.append(el("h3", null, `${names[s.outcome] || s.outcome} · ${c.done || 0} hechas, ${c.blocked || 0} bloqueadas, ${c.skipped || 0} saltadas · ${Math.round(s.duration || 0)}s`));
+    if (s.outcome !== "completed") b.append(el("div", null, "Retoma con `swarm-pilot resume`."));
+  }
+
+  function renderAll() { renderHeader(); renderPlan(); renderAgents(); renderHelp(); renderPreview(); }
+
+  // ---------- eventos ----------
+  function applyPlan(plan) {
+    if (!plan) return;
+    state.plan = plan;
+    state.agents = new Map(plan.tasks.filter((t) => t.status === "running" || t.status === "verifying")
+      .map((t) => [t.id, Object.assign({ title: t.title, status: t.status, attempt: t.attempts.length }, state.agents.get(t.id) || {}, { status: t.status })]));
+  }
+
+  function handle(ev) {
+    const p = ev.payload || {};
+    switch (ev.type) {
+      case "phase": state.phase = p.phase; if (p.plan) applyPlan(p.plan); if (p.phase === "running") $("finished").classList.add("hidden"); renderAll(); break;
+      case "plan_updated": applyPlan(p.plan); renderHeader(); renderPlan(); renderAgents(); break;
+      case "run_started": state.phase = "running"; renderHeader(); break;
+      case "task_status": {
+        if (p.status === "running" || p.status === "verifying") state.agents.set(ev.task_id, Object.assign(state.agents.get(ev.task_id) || {}, { title: p.title, status: p.status }, p.attempt ? { attempt: p.attempt } : {}, p.agent ? { agent: p.agent } : {}));
+        else state.agents.delete(ev.task_id);
+        if (p.status !== "blocked") state.help.delete(ev.task_id);
+        const label = { running: "▶ empieza", verifying: "… verificando", done: "✓ completada", blocked: "✕ bloqueada", skipped: "– saltada", pending: "↺ en cola" }[p.status] || p.status;
+        addLog(ev.task_id, `${label}${p.attempt ? ` (intento ${p.attempt})` : ""}${p.notes ? " — " + p.notes : ""}`, ev.ts, p.status === "done" ? "good" : p.status === "blocked" ? "fail" : "");
+        renderAgents(); renderHelp(); break;
+      }
+      case "agent_log": addLog(ev.task_id ? ev.task_id : (p.source || "sistema"), p.line, ev.ts, p.source || ""); break;
+      case "verify_result": addLog(ev.task_id, p.ok ? "✓ verificación superada" : "✕ verificación fallida", ev.ts, p.ok ? "good" : "fail"); break;
+      case "attempt_failed": addRepair(ev.task_id, p.attempt, p.remaining, p.error); break;
+      case "needs_help": state.help.set(ev.task_id, Object.assign({ task_id: ev.task_id }, p)); renderHelp(); break;
+      case "preview_status":
+        state.preview = p; renderPreview();
+        if (p.reload && p.state === "ready") { try { $("frame").contentWindow.location.reload(); } catch { $("frame").src = p.url; } }
+        break;
+      case "run_finished": state.phase = "finished"; state.cost = p.cost_usd || state.cost; state.agents.clear(); renderFinished(p); renderAll(); break;
+    }
+  }
+
+  function applySnapshot(s) {
+    state.phase = s.phase; state.cost = s.cost_usd || 0; state.startedAt = s.started_at || state.startedAt;
+    state.preview = s.preview || { state: "off" };
+    state.help = new Map((s.pending_help || []).map((h) => [h.task_id, h]));
+    state.agents = new Map();
+    applyPlan(s.plan);
+    $("logs").innerHTML = ""; $("repair-list").innerHTML = '<div class="empty">Sin fallos de verificación.</div>'; state.repairs = 0;
+    for (const ev of s.history || []) {
+      if (ev.type === "attempt_failed") addRepair(ev.task_id, ev.payload.attempt, ev.payload.remaining, ev.payload.error);
+      else if (ev.type !== "needs_help") handle(ev);
+    }
+    renderFinished(s.summary);
+    renderAll();
+  }
+
+  // ---------- red ----------
+  async function post(url, body) {
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Swarm-Token": TOKEN }, body: JSON.stringify(body) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); addLog("sistema", `⚠ ${j.detail || r.status}`, null, "fail"); }
+    } catch (e) { addLog("sistema", `⚠ ${e}`, null, "fail"); }
+  }
+
+  let retry = 500;
+  function connect() {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => { retry = 500; };
+    ws.onmessage = (m) => {
+      const msg = JSON.parse(m.data);
+      if (msg.type === "snapshot") applySnapshot(msg.data); else handle(msg);
+    };
+    ws.onclose = () => {
+      state.phase = state.phase === "finished" ? "finished" : "offline"; renderHeader();
+      if (state.phase === "offline") { setTimeout(connect, retry); retry = Math.min(retry * 2, 5000); }
+    };
+  }
+
+  // ---------- UI ----------
+  $("approve-yes").onclick = () => post("/api/approve", { approve: true });
+  $("approve-no").onclick = () => post("/api/approve", { approve: false });
+  $("preview-reload").onclick = () => { const f = $("frame"); if (f.src) f.src = f.src; };
+  const PREF = "swarm-pilot:preview";
+  const setSplit = (on) => { $("main").classList.toggle("no-preview", !on); try { localStorage.setItem(PREF, on ? "1" : "0"); } catch {} };
+  $("toggle-preview").onclick = () => setSplit($("main").classList.contains("no-preview"));
+  try { if (localStorage.getItem(PREF) === "0") setSplit(false); } catch {}
+  setInterval(() => {
+    const s = Math.max(0, Math.floor(Date.now() / 1000 - state.startedAt));
+    $("elapsed").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }, 1000);
+  renderFilters();
+  connect();
+})();
+</script>
+</body>
+</html>
