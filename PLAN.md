@@ -1,6 +1,6 @@
 # PLAN.md — swarm-pilot v0.1
 
-> **Estado:** M1–M3 completos; M4 listo salvo la publicación en PyPI · **Actualizado:** 2026-11-20
+> **Estado:** v0.1.0 completa (M1–M4); distribuida directamente desde GitHub · **Actualizado:** 2026-11-20
 > Este archivo usa el mismo formato que `swarm-pilot` generará para tus proyectos: cada tarea tiene rol, dependencias, archivos y comando de verificación.
 
 ---
@@ -74,7 +74,7 @@ swarm-pilot/
 └── tests/
 ```
 
-> `cli.py` y `mcp_server.py` viven dentro del paquete `swarm_pilot/` para que `pip install swarm-pilot` funcione y exponga el comando `swarm-pilot`.
+> `cli.py` y `mcp_server.py` viven dentro del paquete `swarm_pilot/` para que `pip install git+https://github.com/deivycom21-cell/swarm-pilot.git` funcione y exponga el comando `swarm-pilot`.
 
 ---
 
@@ -149,7 +149,7 @@ El panel recibe por WebSocket un snapshot inicial y luego deltas, con estos even
 Para la vista previa se detecta el servidor en este orden:
 1. `package.json` → `npm run dev -- --port N`;
 2. `vite.config.*` → `npx vite --port N`;
-3. `index.html` → `python -m http.server N --bind 127.0.0.1`;
+3. `index.html` → servidor estático de Python en `127.0.0.1:N` (como `http.server`, sin la resolución DNS inversa que bloquea en macOS);
 4. si no hay nada, no hay vista previa.
 
 La vista previa se levanta tras la primera tarea web verificada y se considera lista cuando responde HTTP 200. Se reinicia si cambia `package.json`.
@@ -362,21 +362,20 @@ Formato: `rol` · `depende` · `archivos` · `verificar`. Estado: `[ ]` pendient
 - detalle: matriz Ubuntu/Windows/macOS × Python 3.10–3.13, con `ruff` y `pytest`.
 - verificar: CI en verde
 
-#### [ ] T24 · Documentación y publicación
+#### [x] T24 · Documentación y publicación
 - rol: architect
 - depende: T23
 - archivos: `README.md`
-- detalle: guía rápida, proveedores, seguridad y GIF de demo; confirmar que el nombre está libre en PyPI y publicar.
-- verificar: `pip install swarm-pilot` en un entorno limpio
+- detalle: guía rápida, proveedores y seguridad; distribuido directamente desde GitHub (no se publica en PyPI).
+- verificar: `pip install git+https://github.com/deivycom21-cell/swarm-pilot.git` en un entorno limpio
 - progreso:
   - [x] README con guía rápida, comandos, proveedores, seguridad y MCP (todo en README; no hizo falta `docs/`)
-  - [x] nombre `swarm-pilot` libre en PyPI (comprobado 2026-11-20)
-  - [x] paquete construye y pasa `twine check`
-  - [ ] GIF de demo (`SWARM_PLANNER=fake SWARM_WORKER=fake SWARM_FAKE_DELAY=1 swarm-pilot run "demo" --yes`)
-  - [ ] CI en verde en GitHub (requiere subir el repo)
-  - [ ] `twine upload` a PyPI (requiere cuenta del autor)
+  - [x] instalación desde GitHub documentada en ambos idiomas (requiere `git`)
+  - [x] el paquete construye, pasa `twine check` y se instala y ejecuta en un entorno limpio
+  - [x] repositorio público en `https://github.com/deivycom21-cell/swarm-pilot`
+- opcional, fuera de v0.1: GIF de demo (`SWARM_PLANNER=fake SWARM_WORKER=fake SWARM_FAKE_DELAY=1 swarm-pilot run "demo" --yes`)
 
-**🏁 Hito M4:** v0.1.0 publicada.
+**🏁 Hito M4:** v0.1.0 publicada en GitHub.
 
 ---
 

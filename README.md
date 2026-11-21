@@ -24,7 +24,7 @@ swarm-pilot run "Crea una landing page moderna"
 
 ### Instalación
 
-Requiere Python ≥ 3.10. Y al menos un proveedor: [Claude Code](https://claude.com/claude-code) en el PATH, una API key o [Ollama](https://ollama.com).
+Requiere Python ≥ 3.10 y [git](https://git-scm.com) (la instalación se hace desde GitHub). Y al menos un proveedor: [Claude Code](https://claude.com/claude-code) en el PATH, una API key o [Ollama](https://ollama.com).
 
 ```bash
 pip install git+https://github.com/deivycom21-cell/swarm-pilot.git             # núcleo: claude-cli, OpenAI, OpenRouter, Ollama
@@ -142,7 +142,7 @@ swarm-pilot run "Build a modern landing page"
 
 ### Install
 
-Python ≥ 3.10 and at least one provider: [Claude Code](https://claude.com/claude-code) on your PATH, an API key, or [Ollama](https://ollama.com).
+Python ≥ 3.10 and [git](https://git-scm.com) (installation is from GitHub), plus at least one provider: [Claude Code](https://claude.com/claude-code) on your PATH, an API key, or [Ollama](https://ollama.com).
 
 ```bash
 pip install git+https://github.com/deivycom21-cell/swarm-pilot.git             # core: claude-cli, OpenAI, OpenRouter, Ollama
